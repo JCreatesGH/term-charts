@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "termcharts"
+version = "0.1.0"
+description = "Zero-dependency Unicode charts for the terminal: sparklines, bar charts, histograms, heatmaps."
+readme = "README.md"
+authors = [{ name = "Joshua John", email = "josh202@gmail.com" }]
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["terminal", "cli", "charts", "sparkline", "ascii", "visualization"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
