@@ -1,4 +1,4 @@
-from termcharts import sparkline, bars, hbar, histogram, heatmap
+from termcharts import sparkline, bars, hbar, columns, histogram, heatmap
 
 
 def test_sparkline_endpoints():
@@ -9,6 +9,23 @@ def test_sparkline_endpoints():
 def test_sparkline_flat_and_empty():
     assert sparkline([5, 5, 5]) == "▁▁▁"
     assert sparkline([]) == ""
+
+
+def test_sparkline_fixed_scale_clamps():
+    # With a pinned [0,10] scale, 5 is mid and out-of-range values clamp to the ends.
+    s = sparkline([0, 5, 10, 20], lo=0, hi=10)
+    assert s[0] == "▁" and s[2] == "█" and s[-1] == "█"
+    assert len(s) == 4
+
+
+def test_columns_shape_and_scaling():
+    out = columns([0, 4, 8], height=4)
+    rows = out.splitlines()
+    assert len(rows) == 4
+    assert all(len(r) == 3 for r in rows)        # one char per value
+    assert rows[0][0] == " "                      # zero column is empty at the top
+    assert rows[-1][-1] == "█"                    # max column is full at the bottom
+    assert columns([], height=4) == ""
 
 
 def test_hbar_fraction_and_bounds():
