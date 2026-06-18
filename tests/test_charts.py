@@ -1,4 +1,4 @@
-from termcharts import sparkline, bars, hbar, columns, histogram, heatmap, line
+from termcharts import sparkline, bars, hbar, columns, histogram, heatmap, line, scatter, plot
 
 _BLANK = "⠀"   # empty braille cell (not a regular space)
 
@@ -20,6 +20,41 @@ def test_line_rising_inks_low_left_and_high_right():
 def test_line_empty_and_single():
     assert line([]) == ""
     assert len(line([5], width=4, height=2).splitlines()) == 2
+
+
+def test_scatter_inks_fewer_dots_than_line():
+    # a steep series: a connected line fills the climb; scatter inks only samples
+    data = [0, 8, 0, 8, 0, 8]
+    def ink(s):
+        return sum(1 for ch in s.replace("\n", "") if ch != _BLANK)
+    assert ink(scatter(data, width=12, height=4)) < ink(line(data, width=12, height=4))
+
+
+def test_scatter_shape_and_empty():
+    rows = scatter([0, 1, 2, 3], width=8, height=3).splitlines()
+    assert len(rows) == 3 and all(len(r) == 8 for r in rows)
+    assert scatter([]) == ""
+
+
+def test_plot_frames_with_axis_and_labels():
+    out = plot([0, 4, 8, 4, 0], width=12, height=4)
+    rows = out.splitlines()
+    # one row per chart row, plus a baseline border row
+    assert len(rows) == 5
+    assert "┤" in rows[0] and rows[0].lstrip().startswith("8")   # top label = hi
+    assert "┤" in rows[-2] and "0" in rows[-2]                   # bottom label = lo
+    assert rows[-1].strip().startswith("└")                     # baseline corner
+    assert "─" in rows[-1]
+
+
+def test_plot_xrange_adds_axis_labels():
+    out = plot([1, 2, 3], width=20, height=3, xrange=(0, 100))
+    last = out.splitlines()[-1]
+    assert "0" in last and "100" in last
+
+
+def test_plot_empty():
+    assert plot([]) == ""
 
 
 def test_sparkline_endpoints():

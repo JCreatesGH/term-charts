@@ -117,23 +117,30 @@ _BRAILLE_DOTS = {
 }
 
 
-def line(values: Sequence[float], width: int = 40, height: int = 8,
-         lo: Optional[float] = None, hi: Optional[float] = None) -> str:
-    """A high-resolution line plot drawn with braille dots (2×4 per character),
-    so a `width`×`height` chart actually resolves `2·width` × `4·height` points.
-    Consecutive samples are connected. Pin `lo`/`hi` to fix the y-axis."""
-    values = list(values)
-    if not values or width < 1 or height < 1:
-        return ""
+def _fmt(v: float) -> str:
+    """Compact numeric label: ints without a decimal, floats trimmed (8, 0, 5.333)."""
+    return f"{v:.4g}"
+
+
+def _resolve_lohi(values: Sequence[float], lo: Optional[float], hi: Optional[float]) -> tuple[float, float]:
     if lo is None:
         lo = min(values)
     if hi is None:
         hi = max(values)
+    return lo, hi
+
+
+def _braille_rows(values: Sequence[float], width: int, height: int,
+                  lo: float, hi: float, connect: bool) -> List[str]:
+    """Plot `values` (y) over their index (x) into braille cells (2×4 dots each).
+
+    `connect=True` joins consecutive samples (a line); `connect=False` inks only
+    the sample points (a scatter). Returns `height` strings of `width` chars."""
     span = hi - lo
     cols, rows = width * 2, height * 4
     grid = [[0] * width for _ in range(height)]
 
-    def plot(x: int, y: int) -> None:
+    def dot(x: int, y: int) -> None:
         if 0 <= x < cols and 0 <= y < rows:
             grid[y // 4][x // 2] |= _BRAILLE_DOTS[(y % 4, x % 2)]
 
@@ -144,17 +151,82 @@ def line(values: Sequence[float], width: int = 40, height: int = 8,
     n = len(values)
     pts = [(int(round(i / (n - 1) * (cols - 1))) if n > 1 else 0, to_y(v))
            for i, v in enumerate(values)]
-    if n == 1:
-        plot(*pts[0])
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        steps = max(abs(x1 - x0), abs(y1 - y0))
-        if steps == 0:
-            plot(x0, y0)
-            continue
-        for s in range(steps + 1):
-            t = s / steps
-            plot(int(round(x0 + (x1 - x0) * t)), int(round(y0 + (y1 - y0) * t)))
-    return "\n".join("".join(chr(0x2800 + c) for c in row) for row in grid)
+    if not connect or n == 1:
+        for x, y in pts:
+            dot(x, y)
+    else:
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            steps = max(abs(x1 - x0), abs(y1 - y0))
+            if steps == 0:
+                dot(x0, y0)
+                continue
+            for s in range(steps + 1):
+                t = s / steps
+                dot(int(round(x0 + (x1 - x0) * t)), int(round(y0 + (y1 - y0) * t)))
+    return ["".join(chr(0x2800 + c) for c in row) for row in grid]
+
+
+def line(values: Sequence[float], width: int = 40, height: int = 8,
+         lo: Optional[float] = None, hi: Optional[float] = None) -> str:
+    """A high-resolution line plot drawn with braille dots (2×4 per character),
+    so a `width`×`height` chart actually resolves `2·width` × `4·height` points.
+    Consecutive samples are connected. Pin `lo`/`hi` to fix the y-axis."""
+    values = list(values)
+    if not values or width < 1 or height < 1:
+        return ""
+    lo, hi = _resolve_lohi(values, lo, hi)
+    return "\n".join(_braille_rows(values, width, height, lo, hi, connect=True))
+
+
+def scatter(values: Sequence[float], width: int = 40, height: int = 8,
+            lo: Optional[float] = None, hi: Optional[float] = None) -> str:
+    """Like :func:`line`, but inks only the sample points (no connecting segments)
+    — useful for sparse or noisy data where the joins would mislead."""
+    values = list(values)
+    if not values or width < 1 or height < 1:
+        return ""
+    lo, hi = _resolve_lohi(values, lo, hi)
+    return "\n".join(_braille_rows(values, width, height, lo, hi, connect=False))
+
+
+def plot(values: Sequence[float], width: int = 40, height: int = 8,
+         lo: Optional[float] = None, hi: Optional[float] = None, *,
+         kind: str = "line", xrange: Optional[tuple] = None) -> str:
+    """A framed braille chart with a labeled y-axis and a baseline border, so the
+    values are actually readable. `kind` is "line" (connected) or "scatter" (points).
+    Pass `xrange=(x0, x1)` to label the x-axis endpoints.
+
+        8 ┤      ⢀⠤⠒⠉⠑⠢⢄
+          │   ⢀⠔⠁
+        0 ┤⠤⠊⠁
+          └────────────────
+    """
+    values = list(values)
+    if not values or width < 1 or height < 1:
+        return ""
+    lo, hi = _resolve_lohi(values, lo, hi)
+    body = _braille_rows(values, width, height, lo, hi, connect=(kind != "scatter"))
+    span = hi - lo
+
+    # y-axis labels for the top, middle, and bottom rows.
+    labels = {0: _fmt(hi), height - 1: _fmt(lo)}
+    if height >= 3:
+        mid = (height - 1) // 2
+        labels[mid] = _fmt(hi - (mid / (height - 1)) * span)
+    gutter = max(len(s) for s in labels.values())
+
+    out = []
+    for r, row in enumerate(body):
+        if r in labels:
+            out.append(f"{labels[r].rjust(gutter)} ┤{row}")
+        else:
+            out.append(f"{' ' * gutter} │{row}")
+    out.append(f"{' ' * gutter} └{'─' * width}")
+    if xrange is not None:
+        left, right = _fmt(xrange[0]), _fmt(xrange[1])
+        axis = (left + right.rjust(width - len(left))) if len(left) + len(right) <= width else left
+        out.append(f"{' ' * gutter}  {axis}")
+    return "\n".join(out)
 
 
 def heatmap(grid: Sequence[Sequence[float]]) -> str:

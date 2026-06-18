@@ -4,9 +4,9 @@ import argparse
 import sys
 from typing import List, Optional
 
-from .charts import sparkline, bars, columns, histogram, heatmap, line
+from .charts import sparkline, bars, columns, histogram, heatmap, line, scatter, plot
 
-_CHARTS = ["spark", "line", "bars", "columns", "hist", "heatmap"]
+_CHARTS = ["spark", "line", "scatter", "plot", "bars", "columns", "hist", "heatmap"]
 
 
 def _read_stdin() -> str:
@@ -67,6 +67,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 out = sparkline(values)
             elif args.chart == "line":
                 out = line(values, width=args.width or 40, height=args.height)
+            elif args.chart == "scatter":
+                out = scatter(values, width=args.width or 40, height=args.height)
+            elif args.chart == "plot":
+                out = plot(values, width=args.width or 40, height=args.height,
+                           kind="line", xrange=(0, len(values) - 1))
             elif args.chart == "columns":
                 out = columns(values, height=args.height)
             else:  # hist
