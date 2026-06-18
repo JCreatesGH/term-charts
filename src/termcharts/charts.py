@@ -110,6 +110,53 @@ def columns(values: Sequence[float], height: int = 8) -> str:
     return "\n".join(rows)
 
 
+# Braille dot bit per (row_in_cell, col_in_cell); a cell is 2 dots wide × 4 tall.
+_BRAILLE_DOTS = {
+    (0, 0): 0x01, (1, 0): 0x02, (2, 0): 0x04, (3, 0): 0x40,
+    (0, 1): 0x08, (1, 1): 0x10, (2, 1): 0x20, (3, 1): 0x80,
+}
+
+
+def line(values: Sequence[float], width: int = 40, height: int = 8,
+         lo: Optional[float] = None, hi: Optional[float] = None) -> str:
+    """A high-resolution line plot drawn with braille dots (2×4 per character),
+    so a `width`×`height` chart actually resolves `2·width` × `4·height` points.
+    Consecutive samples are connected. Pin `lo`/`hi` to fix the y-axis."""
+    values = list(values)
+    if not values or width < 1 or height < 1:
+        return ""
+    if lo is None:
+        lo = min(values)
+    if hi is None:
+        hi = max(values)
+    span = hi - lo
+    cols, rows = width * 2, height * 4
+    grid = [[0] * width for _ in range(height)]
+
+    def plot(x: int, y: int) -> None:
+        if 0 <= x < cols and 0 <= y < rows:
+            grid[y // 4][x // 2] |= _BRAILLE_DOTS[(y % 4, x % 2)]
+
+    def to_y(v: float) -> int:
+        frac = 0.5 if span == 0 else max(0.0, min(1.0, (v - lo) / span))
+        return int(round((1 - frac) * (rows - 1)))   # invert: high value = top row
+
+    n = len(values)
+    pts = [(int(round(i / (n - 1) * (cols - 1))) if n > 1 else 0, to_y(v))
+           for i, v in enumerate(values)]
+    if n == 1:
+        plot(*pts[0])
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        steps = max(abs(x1 - x0), abs(y1 - y0))
+        if steps == 0:
+            plot(x0, y0)
+            continue
+        for s in range(steps + 1):
+            t = s / steps
+            plot(int(round(x0 + (x1 - x0) * t)), int(round(y0 + (y1 - y0) * t)))
+    return "\n".join("".join(chr(0x2800 + c) for c in row) for row in grid)
+
+
 def heatmap(grid: Sequence[Sequence[float]]) -> str:
     """Render a 2D matrix as shaded blocks (each cell = 2 chars wide)."""
     flat = [v for row in grid for v in row]

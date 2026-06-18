@@ -1,4 +1,25 @@
-from termcharts import sparkline, bars, hbar, columns, histogram, heatmap
+from termcharts import sparkline, bars, hbar, columns, histogram, heatmap, line
+
+_BLANK = "⠀"   # empty braille cell (not a regular space)
+
+
+def test_line_shape():
+    out = line([0, 1, 2, 3, 4, 5, 6, 7], width=10, height=4)
+    rows = out.splitlines()
+    assert len(rows) == 4
+    assert all(len(r) == 10 for r in rows)
+    assert all(ch == _BLANK or 0x2800 <= ord(ch) <= 0x28FF for r in rows for ch in r)
+
+
+def test_line_rising_inks_low_left_and_high_right():
+    out = line(range(40), width=12, height=4).splitlines()
+    assert out[-1][0] != _BLANK     # rising line starts low-left
+    assert out[0][-1] != _BLANK     # …and ends high-right
+
+
+def test_line_empty_and_single():
+    assert line([]) == ""
+    assert len(line([5], width=4, height=2).splitlines()) == 2
 
 
 def test_sparkline_endpoints():

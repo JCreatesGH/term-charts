@@ -4,16 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "termcharts"
-version = "0.1.0"
-description = "Zero-dependency Unicode charts for the terminal: sparklines, bar charts, histograms, heatmaps."
+version = "0.2.0"
+description = "Zero-dependency Unicode charts for the terminal: sparklines, bar charts, braille line plots, histograms, heatmaps."
 readme = "README.md"
 authors = [{ name = "Joshua John", email = "josh202@gmail.com" }]
 requires-python = ">=3.8"
 license = { text = "MIT" }
-keywords = ["terminal", "cli", "charts", "sparkline", "ascii", "visualization"]
+keywords = ["terminal", "cli", "charts", "sparkline", "braille", "ascii", "visualization"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+
+[project.scripts]
+termcharts = "termcharts.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
